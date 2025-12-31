@@ -1,3 +1,0 @@
-[submodule "backend/backend/src/main/resources/config"]
-	path = backend/backend/src/main/resources/config
-	url = https://github.com/kosa-02team/server-config.git
