@@ -15,6 +15,7 @@ CREATE TABLE users (
   simple_password VARCHAR(255),
   status VARCHAR(20) DEFAULT 'ACTIVE',
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   deleted_at DATETIME,
   banned_at DATETIME
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -29,6 +30,7 @@ CREATE TABLE bank_accounts (
   account_number VARCHAR(255) NOT NULL UNIQUE,
   depositor_name VARCHAR(50) NOT NULL,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   deleted_at DATETIME,
   FOREIGN KEY (user_id) REFERENCES users(user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -44,6 +46,7 @@ CREATE TABLE clubs (
   invite_code VARCHAR(20) UNIQUE,
   status VARCHAR(20) DEFAULT 'ACTIVE',
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   closed_at DATETIME,
   FOREIGN KEY (owner_id) REFERENCES users(user_id),
   FOREIGN KEY (main_account_id) REFERENCES bank_accounts(account_id)
@@ -65,9 +68,10 @@ CREATE TABLE club_members (
 CREATE TABLE fee_policies (
   policy_id BIGINT AUTO_INCREMENT PRIMARY KEY,
   club_id BIGINT NOT NULL,
-  amount BIGINT DEFAULT 0,
+  amount DECIMAL(19,2) DEFAULT 0,
   due_day INT DEFAULT 1,
   is_active TINYINT(1) DEFAULT 1,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   FOREIGN KEY (club_id) REFERENCES clubs(club_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -83,6 +87,7 @@ CREATE TABLE posts (
   title VARCHAR(200) NOT NULL,
   content TEXT,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   deleted_at DATETIME,
   FOREIGN KEY (club_id) REFERENCES clubs(club_id),
   FOREIGN KEY (writer_id) REFERENCES users(user_id)
@@ -94,6 +99,7 @@ CREATE TABLE comments (
   writer_id BIGINT NOT NULL,
   content TEXT NOT NULL,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   deleted_at DATETIME,
   FOREIGN KEY (post_id) REFERENCES posts(post_id),
   FOREIGN KEY (writer_id) REFERENCES users(user_id)
@@ -139,6 +145,7 @@ CREATE TABLE reports (
   photo_url VARCHAR(255),
   status VARCHAR(20) DEFAULT 'PENDING',
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   FOREIGN KEY (club_id) REFERENCES clubs(club_id),
   FOREIGN KEY (reporter_id) REFERENCES users(user_id),
   FOREIGN KEY (target_id) REFERENCES users(user_id)
@@ -173,6 +180,7 @@ CREATE TABLE votes (
   status VARCHAR(20) DEFAULT 'OPEN' COMMENT 'OPEN, CLOSED',
   closed_at DATETIME,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   FOREIGN KEY (post_id) REFERENCES posts(post_id),
   FOREIGN KEY (creator_id) REFERENCES users(user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -206,9 +214,9 @@ CREATE TABLE schedules (
   post_id BIGINT PRIMARY KEY,
   event_date DATETIME NOT NULL,
   location VARCHAR(255),
-  entry_fee BIGINT DEFAULT 0,
-  total_spent BIGINT DEFAULT 0,
-  refund_per_person BIGINT DEFAULT 0,
+  entry_fee DECIMAL(19,2) DEFAULT 0,
+  total_spent DECIMAL(19,2) DEFAULT 0,
+  refund_per_person DECIMAL(19,2) DEFAULT 0,
   status VARCHAR(20) DEFAULT 'OPEN',
   closed_at DATETIME,
   FOREIGN KEY (post_id) REFERENCES posts(post_id)
@@ -228,9 +236,10 @@ CREATE TABLE schedule_participants (
 CREATE TABLE settlement_requests (
   settlement_id BIGINT AUTO_INCREMENT PRIMARY KEY,
   post_id BIGINT NOT NULL,
-  total_amount BIGINT NOT NULL,
+  total_amount DECIMAL(19,2) NOT NULL,
   status VARCHAR(20) DEFAULT 'PENDING',
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   FOREIGN KEY (post_id) REFERENCES posts(post_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
@@ -238,7 +247,7 @@ CREATE TABLE settlement_items (
   item_id BIGINT AUTO_INCREMENT PRIMARY KEY,
   settlement_id BIGINT NOT NULL,
   item_name VARCHAR(100) NOT NULL,
-  amount BIGINT NOT NULL,
+  amount DECIMAL(19,2) NOT NULL,
   receipt_url VARCHAR(255),
   description TEXT,
   FOREIGN KEY (settlement_id) REFERENCES settlement_requests(settlement_id)
@@ -253,7 +262,7 @@ CREATE TABLE bank_transaction_history (
   bank_transaction_at DATETIME NOT NULL,
   sender_account_number VARCHAR(255) NOT NULL,
   sender_name VARCHAR(50) NOT NULL,
-  amount BIGINT NOT NULL,
+  amount DECIMAL(19,2) NOT NULL,
   is_matched TINYINT(1) DEFAULT 0,
   unique_tx_key VARCHAR(255) UNIQUE,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -265,8 +274,8 @@ CREATE TABLE transaction_log (
   club_id BIGINT NOT NULL,
   account_id BIGINT NOT NULL,
   type VARCHAR(30) NOT NULL,
-  amount BIGINT NOT NULL,
-  balance_after BIGINT NOT NULL,
+  amount DECIMAL(19,2) NOT NULL,
+  balance_after DECIMAL(19,2) NOT NULL,
   description TEXT,
   editor_id BIGINT,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -309,6 +318,7 @@ CREATE TABLE notifications (
   ref_type VARCHAR(30),
   is_read TINYINT(1) DEFAULT 0,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   FOREIGN KEY (user_id) REFERENCES users(user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
@@ -319,6 +329,7 @@ CREATE TABLE messages (
   content TEXT NOT NULL,
   is_read TINYINT(1) DEFAULT 0,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   deleted_at DATETIME,
   FOREIGN KEY (sender_id) REFERENCES users(user_id),
   FOREIGN KEY (receiver_id) REFERENCES users(user_id)
