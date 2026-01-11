@@ -1,6 +1,5 @@
 package back.domain;
 
-import back.domain.BaseEntity;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -19,6 +18,9 @@ public class Schedules extends BaseEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "schedule_id")
     private Long scheduleId;
+
+    @Column(name = "club_id", nullable = false)
+    private Long clubId;
 
     @Column(name = "schedule_name", nullable = false, length = 200)
     private String scheduleName;
@@ -44,14 +46,15 @@ public class Schedules extends BaseEntity {
     @Column(name = "refund_per_person", precision = 19, scale = 2)
     private BigDecimal refundPerPerson = BigDecimal.ZERO;
 
-    @Column(length = 20)
+    @Column(length = 20, nullable = false)
     private String status = "OPEN";
 
     @Column(name = "closed_at")
     private LocalDateTime closedAt;
 
     // 생성자
-    public Schedules(String scheduleName, LocalDateTime eventDate, LocalDateTime endDate, String location, String description, BigDecimal entryFee) {
+    public Schedules(Long clubId, String scheduleName, LocalDateTime eventDate, LocalDateTime endDate, String location, String description, BigDecimal entryFee) {
+        this.clubId = clubId;
         this.scheduleName = scheduleName;
         this.eventDate = eventDate;
         this.endDate = endDate;
