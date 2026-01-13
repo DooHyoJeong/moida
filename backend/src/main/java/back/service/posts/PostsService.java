@@ -1,21 +1,36 @@
 package back.service.posts;
 
-import back.repository.posts.*;
-import back.service.clubs.ClubsAuthorizationService;
+import back.domain.Clubs;
+import back.domain.Schedules;
+import back.domain.Users;
 import back.domain.posts.PostImages;
 import back.domain.posts.PostMemberTags;
 import back.domain.posts.Posts;
-import back.dto.posts.request.PostUpdateRequest;
-import back.dto.posts.request.StoryCreateRequest;
-import back.dto.posts.response.PostResponse;
-import back.exception.PostException;
+import back.dto.posts.posts.response.PostCardBase;
+import back.dto.posts.posts.response.PostCardResponse;
+import back.dto.posts.posts.response.PostIdResponse;
+import back.dto.posts.story.request.StoryCreateRequest;
+import back.dto.posts.story.request.StoryUpdateRequest;
+import back.dto.posts.story.response.*;
+import back.exception.PostsException;
+import back.repository.SchedulesRepository;
+import back.repository.clubs.ClubsRepository;
+import back.repository.posts.PostImagesRepository;
 import back.repository.posts.PostMemberTagsRepository;
 import back.repository.posts.PostsRepository;
+import back.repository.posts.projection.RecentAlbumRow;
+import back.repository.users.UsersRepository;
+import back.service.clubs.ClubsAuthorizationService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -24,127 +39,229 @@ import java.util.stream.Collectors;
 public class PostsService {
 
     private final ClubsAuthorizationService clubAuthorizationService;
+
+    private final ClubsRepository clubsRepository;
+    private final UsersRepository usersRepository;
+    private final SchedulesRepository schedulesRepository;
+
     private final PostsRepository postsRepository;
     private final PostImagesRepository postImagesRepository;
     private final PostMemberTagsRepository postMemberTagsRepository;
 
     @Transactional
-    public Long createStory(Long clubId, Long writerId, StoryCreateRequest request) {
-        //todo : 권한 확인, ClubAuthorizationService 호출해서 해야할듯?
-        Posts post = Posts.story(
-                writerId,
-                clubId,
-                request.scheduleId(),
-                request.content()
+    public PostIdResponse createStory(Long clubId, Long writerId, StoryCreateRequest request) {
+
+         clubAuthorizationService.assertActiveMember(clubId, writerId);
+
+        Posts saved = postsRepository.save(buildStoryPost(clubId, writerId, request));
+
+        applyOptionalUpdatesOnCreate(saved, request);
+
+        return PostIdResponse.from(saved);
+    }
+
+    public PostDetailResponse getPost(Long clubId, Long postId, Long viewerId) {
+        clubAuthorizationService.validateAndGetClubForReadPosts(clubId, viewerId);
+
+        Posts post = getActivePostOrThrow(postId, clubId);
+
+        return PostDetailResponse.from(post);
+    }
+
+    //스토리 페이지에 게시글 박스
+    public List<PostCardResponse> getRecentPosts(Long clubId, Long viewerId, Pageable pageable) {
+        clubAuthorizationService.validateAndGetClubForReadPosts(clubId, viewerId);
+
+        Page<PostCardBase> page = postsRepository.findPostCards(clubId, pageable);
+
+        List<Long> postIds = page.getContent().stream()
+                .map(PostCardBase::postId)
+                .toList();
+
+        Map<Long, List<String>> imageMap = postIds.isEmpty()
+                ? Map.of()
+                : postImagesRepository.findByPostIdIn(postIds).stream()
+                .collect(Collectors.groupingBy(
+                        PostImages::getPostId,
+                        Collectors.mapping(PostImages::getImageUrl, Collectors.toList())
+                ));
+
+        return page.getContent().stream()
+                .map(p -> PostCardResponse.of(p, imageMap.getOrDefault(p.postId(), List.of())))
+                .toList();
+    }
+
+    //스토리 페이지에 앨범 박스
+    public List<AlbumCardResponse> getRecentAlbums(Long clubId, Long viewerId, int limit) {
+        clubAuthorizationService.validateAndGetClubForReadPosts(clubId, viewerId);
+
+        List<RecentAlbumRow> rows = postsRepository.findRecentAlbumRows(
+                clubId, PageRequest.of(0, limit)
         );
+        if (rows.isEmpty()) return List.of();
 
-        Posts savedPost = postsRepository.save(post);
-        post.updatePlace(request.place());
+        List<Long> scheduleIds = rows.stream()
+                .map(RecentAlbumRow::getScheduleId)
+                .toList();
 
-        saveImages(savedPost, request.imagesUrl());
-        saveTaggedMembers(savedPost.getPostId(), request.taggedMemberIds());
+        List<PostImages> images = postImagesRepository.findImagesForSchedules(clubId, scheduleIds);
 
-        return savedPost.getPostId();
-    }
+        Map<Long, List<PostImages>> imageMap = images.stream()
+                .collect(Collectors.groupingBy(pi -> pi.getPost().getSchedule().getScheduleId()));
 
-    public PostResponse getPost(Long clubId, Long postId) {
-        //todo : 모임 공개 방식 확인 필요
+        List<AlbumCardResponse> result = new ArrayList<>();
 
-        Posts post = postsRepository.findById(postId)
-                .orElseThrow(PostException.NotFound::new);
+        for (RecentAlbumRow r : rows) {
+            List<PostImages> list = imageMap.getOrDefault(r.getScheduleId(), List.of());
+            if (list.isEmpty()) continue;
 
-        return PostResponse.from(post);
-    }
+            PostImages cover = list.getFirst(); // createdAt desc 기준 1장
 
-    public List<PostResponse> getAllPosts(Long clubId) {
-        //todo : 모임 공개 방식 확인 필요
-        return postsRepository.findAll().stream()
-                .filter(post -> post.getDeletedAt() == null) // Filter soft-deleted posts
-                .map(PostResponse::from)
-                .collect(Collectors.toList());
+            result.add(new AlbumCardResponse(
+                    clubId,
+                    cover.getPost().getPostId(),
+                    r.getScheduleId(),
+                    r.getScheduleName(),
+                    cover.getImageUrl(),
+                    list.size(),
+                    r.getLastCreatedAt()
+            ));
+        }
+
+        return result;
     }
 
     @Transactional
-    public void updatePost(Long clubId, Long postId, PostUpdateRequest request) {
-        //todo : 1. 수정 권한 확인 v
-        // 2. 작성자가 같은지 확인 v
-        // 3. 시스템 관리자인지도 추가해야함 (MVP 아니라 일단 보류)
-        Long actorId=1L; // todo : 요청한 사람 누구인지 확인 필요, 현재는 상수로 저장
+    public PostIdResponse updatePost(Long clubId, Long postId, Long actorId, StoryUpdateRequest request) {
+        Posts post = getActivePostOrThrow(postId, clubId);
 
-        clubAuthorizationService.assertAtLeastManager(clubId, actorId);
+        // 작성자면 OK, 아니면 운영진 이상
+        assertCanManagePost(clubId, post, actorId);
 
-        Posts post = postsRepository.findById(postId)
-                .orElseThrow(PostException.NotFound::new);
+        applyStoryUpdates(post, request);
+        applyMediaUpdatesOnUpdate(post, request);
 
-        //이미 삭제되거나 블라인드처리된 게시글은 수정 불가
-        if (post.getDeletedAt() != null ) {
-            throw new PostException.Deleted();
-        }
-
-        //작성자가 아니면 수정 불가
-        if (!post.getWriterId().equals(actorId)) {
-            throw new PostException.Forbidden();
-        }
-
-        post.updatePost(request.title(), request.content());
-
+        return PostIdResponse.from(post);
     }
 
     @Transactional
-    public void blindPost(Long postId) {
-        //todo : 1. 수정 권한 확인
-        Long adminId  = 1L; //todo : 요청한 사람 필요
-        Posts post = postsRepository.findById(postId)
-                .orElseThrow(PostException.NotFound::new);
+    public void blindPost(Long clubId, Long postId, Long actorId) {
+        Posts post = getPostOrThrow(postId, clubId);
 
-        // 이미 블라인드면 그냥 종료(권장: idempotent)
         if (post.getDeletedAt() != null) {
-            return;
+            return; // 기존 동작 유지(멱등)
         }
 
-        post.blindPost(adminId);
+        assertCanManagePost(clubId, post, actorId);
 
+        post.blindPost(actorId);
     }
 
     @Transactional
-    public void deletePost(Long postId) {
-        Long actorId=1L; // todo : 요청한 사람 누구인지 확인 필요, 현재는 상수로 저장
-        //작성자가 아니면 삭제 불가
-        Posts post = postsRepository.findById(postId)
-                .orElseThrow(PostException.NotFound::new);
+    public void deletePost(Long clubId, Long postId, Long actorId) {
+        Posts post = getPostOrThrow(postId, clubId);
+
+        if (post.getDeletedAt() != null) {
+            return; // 멱등
+        }
+
+        assertCanManagePost(clubId, post, actorId);
+
         post.delete();
     }
 
-    @Transactional
-    public void replaceImages(Long postId, List<String> urls) {
-        Posts post = postsRepository.findById(postId)
-                .orElseThrow(PostException.NotFound::new);
+    // ====== private helpers ======
 
-        postImagesRepository.deleteByPost_PostId(postId);
+    private Posts buildStoryPost(Long clubId, Long writerId, StoryCreateRequest request) {
+        Clubs clubRef = clubsRepository.getReferenceById(clubId);
+        Users writerRef = usersRepository.getReferenceById(writerId);
+        Schedules scheduleRef = getScheduleRefOrNull(request.scheduleId());
 
-        if (urls != null && !urls.isEmpty()) {
-            postImagesRepository.saveAll(
-                    urls.stream().map(url -> PostImages.of(post, url)).toList()
-            );
+        return Posts.story(clubRef, writerRef, scheduleRef, request.content());
+    }
+
+    private Schedules getScheduleRefOrNull(Long scheduleId) {
+        return (scheduleId == null) ? null : schedulesRepository.getReferenceById(scheduleId);
+    }
+
+    private Posts getPostOrThrow(Long postId, Long clubId) {
+        return postsRepository.findByPostIdAndClub_ClubId(postId, clubId)
+                .orElseThrow(PostsException.PostNotFound::new);
+    }
+
+    private Posts getActivePostOrThrow(Long postId, Long clubId) {
+        Posts post = getPostOrThrow(postId, clubId);
+        if (post.getDeletedAt() != null) {
+            throw new PostsException.Deleted();
+        }
+        return post;
+    }
+
+    private void assertCanManagePost(Long clubId, Posts post, Long actorId) {
+        boolean isWriter = post.getWriter().getUserId().equals(actorId);
+        if (!isWriter) {
+            clubAuthorizationService.assertAtLeastManager(clubId, actorId);
         }
     }
 
-    private void saveImages(Posts posts, List<String> imagesUrl){
-        if (imagesUrl != null && !imagesUrl.isEmpty()) {
-            List<PostImages> images = imagesUrl.stream()
-                    .map(url -> PostImages.of(posts, url))
-                    .toList();
-
-            postImagesRepository.saveAll(images);
+    private void applyStoryUpdates(Posts post, StoryUpdateRequest request) {
+        if (request.content() != null) {
+            post.updateStory(request.content());
+        }
+        if (request.place() != null) {
+            post.updatePlace(request.place());
         }
     }
 
-    private void saveTaggedMembers(Long postId, List<Long> memberIds) {
-        if (memberIds == null || memberIds.isEmpty()) return;
+    private void applyOptionalUpdatesOnCreate(Posts saved, StoryCreateRequest request) {
+        if (request.place() != null) {
+            saved.updatePlace(request.place());
+        }
+        // create는 빈 리스트면 굳이 delete 쿼리 날릴 필요 없음
+        if (request.imagesUrl() != null && !request.imagesUrl().isEmpty()) {
+            replaceImages(saved, request.imagesUrl());
+        }
+        if (request.taggedMemberIds() != null && !request.taggedMemberIds().isEmpty()) {
+            replaceTaggedMembers(saved.getPostId(), request.taggedMemberIds());
+        }
+    }
+
+    /**
+     * null이면 변경 없음
+     * 빈 리스트면 전체 삭제
+     * 값 있으면 교체
+     */
+    private void applyMediaUpdatesOnUpdate(Posts post, StoryUpdateRequest request) {
+        if (request.imagesUrl() != null) {
+            replaceImages(post, request.imagesUrl());
+        }
+        if (request.taggedMemberIds() != null) {
+            replaceTaggedMembers(post.getPostId(), request.taggedMemberIds());
+        }
+    }
+
+    private void replaceImages(Posts post, List<String> imagesUrl) {
+        postImagesRepository.deleteByPost_PostId(post.getPostId());
+
+        if (imagesUrl.isEmpty()) return;
+
+        List<PostImages> images = imagesUrl.stream()
+                .map(url -> PostImages.of(post, url))
+                .toList();
+
+        postImagesRepository.saveAll(images);
+    }
+
+    private void replaceTaggedMembers(Long postId, List<Long> memberIds) {
+        postMemberTagsRepository.deleteByPostId(postId);
+
+        if (memberIds.isEmpty()) return;
 
         List<PostMemberTags> tags = memberIds.stream()
+                .distinct()
                 .map(memberId -> PostMemberTags.of(postId, memberId))
                 .toList();
+
         postMemberTagsRepository.saveAll(tags);
     }
 }

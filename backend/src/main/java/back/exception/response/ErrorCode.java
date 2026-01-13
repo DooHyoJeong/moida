@@ -21,11 +21,19 @@ public enum ErrorCode {
     USER_NOT_FOUND(NOT_FOUND, "A02", "존재하지 않는 사용자입니다."),
     LOGINID_DUPLICATED(CONFLICT, "A03", "이미 존재하는 회원입니다."),
 
+    //Club Authorization Error
+    CLUB_NOT_FOUND(NOT_FOUND,"CA01", "모임을 찾을 수 없습니다"),
+    CLUB_NOT_ACTIVE(UNAUTHORIZED,"CA02","모임에 접근할 수 없습니다"),
+    CLUB_STAFF_REQUIRED(FORBIDDEN, "CA03","운영진 권한이 필요합니다"),
+    CLUB_LOGIN_REQUIRED(UNAUTHORIZED, "CA04","로그인이 필요합니다"),
+
+    //Club Member Error
     CLUB_MEMBER_NOT_FOUND(NOT_FOUND, "CM01", "존재하지 않는 가입 신청입니다."),
     CLUB_MEMBER_NOT_PENDING_STATUS(BAD_REQUEST, "CM02", "대기 상태인 회원만 승인할 수 있습니다."),
     CLUB_MEMBER_FORBIDDEN(FORBIDDEN, "CM03", "해당 모임의 관리자 권한이 없습니다."),
     CLUB_MEMBER_ALREADY_APPLIED_OR_ACTIVE(BAD_REQUEST, "CM04", "가입 신청 중이거나 활동 중인 회원입니다."),
     CLUB_MEMBER_KICKED_OUT_USER(FORBIDDEN, "CM05", "해당 모임에서 강퇴된 사용자는 재가입이 불가합니다."),
+    CLUB_MEMBER_NOT_ACTIVE(BAD_REQUEST,"CM06","활동이 정지된 회원입니다"),
 
     //Vote Error
     VOTE_NOT_FOUND(NOT_FOUND,"V01", "투표를 찾을 수 없습니다"),
@@ -49,6 +57,9 @@ public enum ErrorCode {
     POST_NOT_FOUND(NOT_FOUND,"P01", "게시글을 찾을 수 없습니다"),
     POST_DELETED(GONE, "P02", "삭제된 게시글입니다"),
     POST_FORBIDDEN(FORBIDDEN,"P03", "비공개 또는 제한된 게시글입니다"),
+
+    POST_COMMENT_NOT_FOUND(NOT_FOUND, "PC01","댓글을 찾을 수 없습니다"),
+    POST_COMMENT_DELETED(GONE, "PC02","삭제된 댓글 입니다"),
 
     //Schedule Error
     SCHEDULE_NOT_FOUND(NOT_FOUND,"SC01", "일정을 찾을 수 없습니다"),

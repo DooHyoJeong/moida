@@ -1,6 +1,7 @@
 package back.domain.posts;
 
 import back.domain.BaseEntity;
+import back.domain.Users;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -18,11 +19,13 @@ public class Comments extends BaseEntity {
     @Column(name = "comment_id")
     private Long commentId;
 
-    @Column(name = "post_id", nullable = false)
-    private Long postId;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "post_id", nullable = false)
+    private Posts post;
 
-    @Column(name = "writer_id", nullable = false)
-    private Long writerId;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "writer_id", nullable = false)
+    private Users writer;
 
     @Column(nullable = false, columnDefinition = "TEXT")
     private String content;
@@ -31,9 +34,9 @@ public class Comments extends BaseEntity {
     private LocalDateTime deletedAt;
 
     // 생성자
-    public Comments(Long postId, Long writerId, String content) {
-        this.postId = postId;
-        this.writerId = writerId;
+    public Comments(Posts post, Users writer, String content) {
+        this.post = post;
+        this.writer = writer;
         this.content = content;
     }
 
