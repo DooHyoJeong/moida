@@ -2,7 +2,9 @@ package back.controller;
 
 import back.common.response.SuccessResponse;
 import back.dto.LoginRequest;
-import back.dto.SignupRequest;
+import back.dto.auth.RefreshTokenRequest;
+import back.dto.auth.RefreshTokenResponse;
+import back.dto.auth.SignupRequest;
 import back.service.AuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -21,11 +23,11 @@ public class AuthController {
     private final AuthService authService;
 
     @PostMapping("/login")
-    public ResponseEntity<SuccessResponse<String>> login(@RequestBody
+    public ResponseEntity<SuccessResponse<RefreshTokenResponse>> login(@RequestBody
                                                          @Valid
                                                          LoginRequest loginRequest) {
-        String token = authService.login(loginRequest);
-        return ResponseEntity.ok(SuccessResponse.success(HttpStatus.OK, token));
+        RefreshTokenResponse refreshTokenResponse = authService.login(loginRequest);
+        return ResponseEntity.ok(SuccessResponse.success(HttpStatus.OK, refreshTokenResponse));
     }
 
     @PostMapping("/signup")
@@ -35,4 +37,13 @@ public class AuthController {
         Long savedUserId = authService.signup(signupRequest);
         return ResponseEntity.ok(SuccessResponse.success(HttpStatus.OK, savedUserId));
     }
+
+    @PostMapping("/refresh")
+    public ResponseEntity<SuccessResponse<RefreshTokenResponse>> refresh(@RequestBody
+                                                                         RefreshTokenRequest refreshTokenRequest) {
+        RefreshTokenResponse refreshTokenResponse = authService.refresh(refreshTokenRequest);
+        return ResponseEntity.ok(SuccessResponse.success(HttpStatus.OK, refreshTokenResponse));
+    }
+
+
 }
