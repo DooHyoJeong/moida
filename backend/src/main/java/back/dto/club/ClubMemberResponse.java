@@ -1,10 +1,9 @@
-package back.dto;
+package back.dto.club;
 
-import back.domain.ClubMembers;
+import back.domain.club.ClubMembers;
 import lombok.*;
 
 import java.time.LocalDateTime;
-import java.util.List;
 
 @Getter
 @Builder
@@ -14,8 +13,8 @@ public class ClubMemberResponse {
     private Long memberId;
     private Long clubId;
     private Long userId;
-    private String clubNickname;
-    private List<String> roles;
+    private String nickname;
+    private String role;
     private String status;
     private LocalDateTime createdAt;
     private LocalDateTime joinedAt;
@@ -26,8 +25,8 @@ public class ClubMemberResponse {
                 .memberId(entity.getMemberId())
                 .clubId(entity.getClubId())
                 .userId(entity.getUserId())
-                .clubNickname(entity.getClubNickname())
-                .roles(entity.getRoles())
+                .nickname(entity.getNickname())
+                .role(entity.getRole().name())
                 .status(entity.getStatus().name())
                 .createdAt(entity.getCreatedAt())
                 .joinedAt(entity.getJoinedAt())
