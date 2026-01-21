@@ -54,8 +54,8 @@ public class VoteService {
     @Transactional
     public VoteResponse createVote(Long clubId, Long userId, VoteCreateRequest request) {
         // 1. voteType 검증
-        if (request.voteType() == null || 
-            (!"GENERAL".equals(request.voteType()) && !"ATTENDANCE".equals(request.voteType()))) {
+        if (request.voteType() == null ||
+                (!"GENERAL".equals(request.voteType()) && !"ATTENDANCE".equals(request.voteType()))) {
             throw new VoteException.OptionInvalid(); // voteType이 유효하지 않음
         }
 
@@ -91,44 +91,44 @@ public class VoteService {
             if (request.scheduleId() != null) {
                 throw new VoteException.OptionInvalid(); // GENERAL 타입은 scheduleId 사용 불가
             }
-            
+
             if (request.options() == null || request.options().size() < 2) {
                 throw new VoteException.OptionRequired();
             }
-            
+
             // options 리스트에 null이 포함되어 있는지 체크
             if (request.options().stream().anyMatch(option -> option == null)) {
                 throw new VoteException.OptionInvalid(); // options에 null 포함
             }
-            
+
             // 각 옵션 검증
             for (VoteOptionCreateRequest option : request.options()) {
                 // optionText null 및 빈 문자열 체크 (방어적 코딩)
                 if (option.optionText() == null || option.optionText().trim().isEmpty()) {
                     throw new VoteException.OptionInvalid(); // optionText가 null이거나 빈 문자열
                 }
-                
+
                 // optionText 길이 체크 (200자)
                 if (option.optionText().length() > 200) {
                     throw new VoteException.OptionInvalid(); // optionText가 200자 초과
                 }
-                
+
                 // location 길이 체크 (255자)
                 if (option.location() != null && option.location().length() > 255) {
                     throw new VoteException.OptionInvalid(); // location이 255자 초과
                 }
-                
+
                 // order가 null이거나 음수인지 체크
                 if (option.order() == null || option.order() < 0) {
                     throw new VoteException.OptionInvalid(); // order가 null이거나 음수
                 }
             }
-            
+
             // deadline이 과거 날짜인지 검증
             if (request.deadline() != null && request.deadline().isBefore(LocalDateTime.now())) {
                 throw new VoteException.DeadlinePassed();
             }
-            
+
             // options의 order 중복 체크
             List<Integer> orders = request.options().stream()
                     .map(VoteOptionCreateRequest::order)
@@ -174,7 +174,7 @@ public class VoteService {
         // 2. Votes 엔티티 생성
         // GENERAL 타입일 때만 deadline 사용, ATTENDANCE 타입은 null
         LocalDateTime deadline = "GENERAL".equals(request.voteType()) ? request.deadline() : null;
-        
+
         Votes vote = new Votes(
                 post != null ? post.getPostId() : null, // GENERAL 타입일 때만 postId 설정
                 request.voteType(),
@@ -210,7 +210,7 @@ public class VoteService {
             );
             voteOptionRepository.save(absentOption);
         }
-        
+
         // 4. GENERAL 타입이면 사용자가 입력한 옵션들 생성
         if ("GENERAL".equals(request.voteType()) && request.options() != null && !request.options().isEmpty()) {
             for (VoteOptionCreateRequest optionRequest : request.options()) {

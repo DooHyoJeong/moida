@@ -37,7 +37,7 @@ public interface PostRepository extends JpaRepository<Posts, Long> {
       """)
   Page<PostCardBase> findPostCards(@Param("clubId") Long clubId, Pageable pageable);
 
-    @Query("""
+  @Query("""
     select
         p.schedule.scheduleId as scheduleId,
         p.schedule.scheduleName as scheduleName,
@@ -49,10 +49,10 @@ public interface PostRepository extends JpaRepository<Posts, Long> {
     group by p.schedule.scheduleId, p.schedule.scheduleName
     order by max(p.createdAt) desc
     """)
-    List<RecentAlbumRow> findRecentAlbumRows(@Param("clubId") Long clubId, Pageable pageable);
+  List<RecentAlbumRow> findRecentAlbumRows(@Param("clubId") Long clubId, Pageable pageable);
 
-    /**
-     * 특정 모임의 특정 카테고리 게시글 중 삭제되지 않은 게시글들을 조회합니다.
-     */
-    List<Posts> findByClub_ClubIdAndCategoryAndDeletedAtIsNull(Long clubId, PostCategory category);
+  /**
+   * 특정 모임의 특정 카테고리 게시글 중 삭제되지 않은 게시글들을 조회합니다.
+   */
+  List<Posts> findByClub_ClubIdAndCategoryAndDeletedAtIsNull(Long clubId, PostCategory category);
 }
